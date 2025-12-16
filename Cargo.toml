@@ -1,0 +1,22 @@
+[package]
+name = "nyc-train-time"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = [
+  "serde",
+] } # Key: Enable the "serde" feature for chrono
+reqwest = { version = "0.12", features = ["json"] }
+protobuf = "3.6"
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+rstest = "0.26"
+pretty_assertions = "1.4"
+
+[build-dependencies]
+protobuf-codegen = "3.6"
