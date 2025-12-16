@@ -186,6 +186,7 @@ fn process_text(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_process_text_icons() {
