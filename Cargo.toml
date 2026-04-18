@@ -2,6 +2,9 @@
 name = "nyc-train-time"
 version = "0.1.0"
 edition = "2024"
+description = "NYC subway service alert calendar feeds"
+license = "MIT"
+repository = "https://github.com/thekeenant/nyctraincal"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

@@ -148,22 +148,25 @@ async fn handle_index() -> Response {
             margin: 30px 0;
         }
         .train-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            display: flex;
+            flex-wrap: wrap;
             gap: 12px;
             margin-bottom: 20px;
         }
         .train-link {
-            display: block;
-            padding: 20px;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            height: 64px;
             font-weight: bold;
-            font-size: 24px;
-            border-radius: 8px;
+            font-size: 22px;
+            border-radius: 50%;
             transition: transform 0.2s;
             cursor: pointer;
             border: none;
             text-decoration: none;
+            flex-shrink: 0;
         }
         .train-link:hover {
             transform: scale(1.05);
@@ -182,87 +185,55 @@ async fn handle_index() -> Response {
         .train-L { background-color: #a7a9ac; color: white; }
         .train-N, .train-Q, .train-R, .train-W { background-color: #fccc0a; color: black; }
         .train-S, .train-SI { background-color: #808183; color: white; }
-        .url-section {
-            background-color: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 30px 0;
-            display: none;
-        }
-        .url-section.visible {
-            display: block;
-        }
-        .url-container {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .url-box {
-            flex: 1;
-            padding: 12px;
-            font-family: monospace;
-            font-size: 14px;
-            background-color: white;
-            border: 2px solid #ddd;
-            border-radius: 4px;
-            word-break: break-all;
-        }
-        .copy-btn {
-            padding: 12px 24px;
-            background-color: #0039a6;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
+        .train-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            font-size: 12px;
             font-weight: bold;
-            transition: background-color 0.2s;
+            flex-shrink: 0;
+            vertical-align: middle;
         }
-        .copy-btn:hover {
-            background-color: #002d7a;
+        #subscribeSection { margin-top: 20px; }
+        .subscribe-buttons { display: flex; flex-direction: column; gap: 10px; }
+        .subscribe-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            transition: background 0.15s;
         }
-        .copy-btn.copied {
-            background-color: #00933c;
-        }
-        .instructions {
+        .subscribe-btn:hover { background: #e0e0e0; }
+        .about {
             background-color: #f5f5f5;
             padding: 20px;
             border-radius: 8px;
             margin-top: 30px;
         }
-        .instructions code {
-            background-color: #e0e0e0;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: monospace;
-        }
         @media (max-width: 600px) {
-            body {
-                padding: 15px;
-            }
-            h1 {
-                font-size: 24px;
-                margin-top: 10px;
-            }
+            body { padding: 15px; }
+            h1 { font-size: 24px; margin-top: 10px; }
             .train-grid {
                 grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
                 gap: 8px;
             }
-            .train-link {
-                padding: 15px;
-                font-size: 20px;
-            }
-            .url-container {
-                flex-direction: column;
-            }
-            .copy-btn {
-                width: 100%;
-            }
+            .train-link { width: 52px; height: 52px; font-size: 18px; }
         }
     </style>
 </head>
 <body>
     <h1>🚇 NYC Train Cal</h1>
-    <p>Subscribe to service alerts for your train line and plan your days better. Click a line to get its calendar subscription URL:</p>
+    <p>Click your train line to subscribe to its service alerts:</p>
     
     <div class="train-grid">
         <button class="train-link train-A" data-train="A">A</button>
@@ -290,64 +261,38 @@ async fn handle_index() -> Response {
         <button class="train-link train-S" data-train="S">S</button>
         <button class="train-link train-SI" data-train="SI">SI</button>
     </div>
-    
-    <div class="url-section" id="urlSection">
-        <h3>Calendar Subscription URL</h3>
-        <p>Copy this URL and add it to your calendar app:</p>
-        <div class="url-container">
-            <div class="url-box" id="urlBox"></div>
-            <button class="copy-btn" id="copyBtn">Copy</button>
-        </div>
-    </div>
-    
-    <div class="instructions">
-        <h2>How to Subscribe</h2>
-        <ol>
-            <li>Click on a train line above to get its calendar URL</li>
-            <li>Click the "Copy" button to copy the URL</li>
-            <li>In your calendar app (Google Calendar, Apple Calendar, Outlook, etc.), look for "Subscribe to calendar" or "Add calendar by URL"</li>
-            <li>Paste the URL you copied</li>
-            <li>Your calendar will stay updated with MTA service alerts and planned service changes so you can plan ahead!</li>
-        </ol>
+
+    <div id="subscribeSection" style="display:none;"></div>
+
+    <div class="about">
+        <h2>How it works</h2>
+        <p>NYC Train Cal pulls live service alerts from the MTA and exposes them as a calendar feed. When you subscribe, your calendar app (Google Calendar, Apple Calendar, Outlook, etc.) automatically syncs upcoming planned service changes — weekend reroutes, late-night suspensions, and more — so you can see them alongside the rest of your schedule and plan ahead.</p>
     </div>
 
     <script>
         const trainButtons = document.querySelectorAll('.train-link');
-        const urlSection = document.getElementById('urlSection');
-        const urlBox = document.getElementById('urlBox');
-        const copyBtn = document.getElementById('copyBtn');
-        
+        const subscribeSection = document.getElementById('subscribeSection');
+
         trainButtons.forEach(button => {
             button.addEventListener('click', () => {
                 const train = button.dataset.train;
-                const url = window.location.origin + '/api/calendars/train/' + train + '.ics';
-                
-                // Update selected state
+                const icsUrl = window.location.origin + '/api/calendars/train/' + train + '.ics';
+                const webcalUrl = icsUrl.replace(/^https?:/, 'webcal:');
+                const colorClass = button.className.split(' ').find(c => c.startsWith('train-') && c !== 'train-link');
+                const badge = `<span class="train-badge ${colorClass}">${train}</span>`;
+
                 trainButtons.forEach(btn => btn.classList.remove('selected'));
                 button.classList.add('selected');
-                
-                // Show URL section
-                urlSection.classList.add('visible');
-                urlBox.textContent = url;
-                
-                // Reset copy button
-                copyBtn.textContent = 'Copy';
-                copyBtn.classList.remove('copied');
-                
-                // Scroll to URL section
-                urlSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            });
-        });
-        
-        copyBtn.addEventListener('click', () => {
-            const url = urlBox.textContent;
-            navigator.clipboard.writeText(url).then(() => {
-                copyBtn.textContent = 'Copied!';
-                copyBtn.classList.add('copied');
-                setTimeout(() => {
-                    copyBtn.textContent = 'Copy';
-                    copyBtn.classList.remove('copied');
-                }, 2000);
+
+                subscribeSection.innerHTML = `
+                    <div class="subscribe-buttons">
+                        <a class="subscribe-btn" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}" target="_blank" rel="noopener">Add ${badge} to Google Calendar</a>
+                        <a class="subscribe-btn" href="${webcalUrl}">Add ${badge} to Apple Calendar</a>
+                        <a class="subscribe-btn" href="https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener">Add ${badge} to Outlook</a>
+                        <a class="subscribe-btn" href="https://calendar.yahoo.com/?v=60&type=16&SUBCAL=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener">Add ${badge} to Yahoo Calendar</a>
+                    </div>`;
+                subscribeSection.style.display = 'block';
+                subscribeSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             });
         });
     </script>
