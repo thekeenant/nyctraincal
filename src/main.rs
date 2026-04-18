@@ -48,11 +48,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
 
-    println!("Server running on http://0.0.0.0:3000");
+    println!("Server running on http://0.0.0.0:{port}");
     println!("Rate limit: 10 req/s per IP, 30s cache, max 50 concurrent requests");
-    println!("Example: http://localhost:3000/api/calendars/train/A.ics");
+    println!("Example: http://localhost:{port}/api/calendars/train/A.ics");
 
     axum::serve(
         listener,
