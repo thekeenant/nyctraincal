@@ -14,6 +14,7 @@ use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 #[derive(Clone)]
 struct AppState {
     cache: Cache<String, String>,
+    gtag_snippet: String,
 }
 
 #[tokio::main]
@@ -24,7 +25,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .time_to_live(Duration::from_secs(30))
         .build();
 
-    let state = AppState { cache };
+    let gtag_id = required_gtag_id_from_env().map_err(std::io::Error::other)?;
+    let gtag_snippet = build_gtag_snippet(&gtag_id);
+
+    let state = AppState {
+        cache,
+        gtag_snippet,
+    };
 
     // Rate limiting: 10 requests per IP per second
     let governor_conf = GovernorConfigBuilder::default()
@@ -35,6 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         .route("/", get(handle_index))
+        .route("/favicon.svg", get(handle_favicon))
+        .route("/favicon.ico", get(handle_favicon))
         .route(
             "/api/calendars/train/:train_name",
             get(handle_train_calendar),
@@ -125,13 +134,15 @@ async fn handle_train_calendar(
     }
 }
 
-async fn handle_index() -> Response {
-    let html = r#"<!DOCTYPE html>
+async fn handle_index(State(state): State<AppState>) -> Response {
+    let html_template = r#"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NYC Train Cal</title>
+    <!-- GTAG_PLACEHOLDER -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -299,10 +310,62 @@ async fn handle_index() -> Response {
 </body>
 </html>"#;
 
+    let html = html_template.replace("<!-- GTAG_PLACEHOLDER -->", &state.gtag_snippet);
+
     (
         StatusCode::OK,
         [("Content-Type", "text/html; charset=utf-8")],
         html,
+    )
+        .into_response()
+}
+
+fn required_gtag_id_from_env() -> Result<String, String> {
+    let ga_id = std::env::var("GTAG_ID")
+        .map_err(|_| "GTAG_ID environment variable is required".to_string())?;
+    let ga_id = ga_id.trim();
+
+    if ga_id.is_empty() {
+        return Err("GTAG_ID cannot be empty".to_string());
+    }
+
+    if !ga_id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err("GTAG_ID contains invalid characters".to_string());
+    }
+
+    Ok(ga_id.to_string())
+}
+
+fn build_gtag_snippet(ga_id: &str) -> String {
+    format!(
+        r#"<script async src="https://www.googletagmanager.com/gtag/js?id={ga_id}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){{dataLayer.push(arguments);}}
+      gtag('js', new Date());
+      gtag('config', '{ga_id}');
+    </script>"#
+    )
+}
+
+async fn handle_favicon() -> Response {
+        let favicon = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NYC Train Cal favicon">
+    <rect x="0" y="0" width="64" height="64" rx="12" fill="#0039a6"/>
+    <rect x="16" y="10" width="32" height="36" rx="10" fill="#ffffff"/>
+    <rect x="22" y="18" width="20" height="10" rx="2" fill="#0039a6"/>
+    <circle cx="24" cy="38" r="3" fill="#0039a6"/>
+    <circle cx="40" cy="38" r="3" fill="#0039a6"/>
+    <rect x="28" y="46" width="8" height="8" rx="2" fill="#ffffff"/>
+    <rect x="14" y="56" width="36" height="4" rx="2" fill="#ff6319"/>
+</svg>"##;
+
+    (
+        StatusCode::OK,
+        [("Content-Type", "image/svg+xml; charset=utf-8")],
+        favicon,
     )
         .into_response()
 }
