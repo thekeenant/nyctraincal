@@ -157,13 +157,16 @@ async fn handle_index_train(
     render_index_page(&state.gtag_snippet).into_response()
 }
 
-fn render_index_page(gtag_snippet: &str) -> (StatusCode, [(&'static str, &'static str); 1], String) {
+fn render_index_page(
+    gtag_snippet: &str,
+) -> (StatusCode, [(&'static str, &'static str); 1], String) {
     let html_template = r#"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NYC Train Cal</title>
+    <title>NYC Train Cal — MTA Subway Service Alert Calendars</title>
+    <meta name="description" content="Subscribe to live MTA subway service alerts as calendar feeds. Get planned service changes, weekend reroutes, and suspensions directly in Google Calendar, Apple Calendar, or Outlook — filtered by train line.">
     <!-- GTAG_PLACEHOLDER -->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <style>
@@ -266,8 +269,8 @@ fn render_index_page(gtag_snippet: &str) -> (StatusCode, [(&'static str, &'stati
     </style>
 </head>
 <body>
-    <h1>🚇 NYC Train Cal</h1>
-    <p>Click your train line to subscribe to its service alerts:</p>
+    <h1>🚇 NYC Train Cal — MTA Subway Alert Calendars</h1>
+    <p>Select your train line below to subscribe to its live MTA service alerts as a calendar feed:</p>
     
     <div class="train-grid">
         <a class="train-link train-A" data-train="A" href="/trains/A">A</a>
@@ -300,7 +303,11 @@ fn render_index_page(gtag_snippet: &str) -> (StatusCode, [(&'static str, &'stati
 
     <div class="about">
         <h2>How it works</h2>
-        <p>NYC Train Cal pulls live service alerts from the MTA and exposes them as a calendar feed. When you subscribe, your calendar app (Google Calendar, Apple Calendar, Outlook, etc.) automatically syncs upcoming planned service changes — weekend reroutes, late-night suspensions, and more — so you can see them alongside the rest of your schedule and plan ahead.</p>
+        <p>NYC Train Cal pulls live service alerts directly from the MTA's real-time data feeds and converts them into iCalendar (.ics) files you can subscribe to from any calendar application. When you subscribe, your calendar app — whether that's Google Calendar, Apple Calendar, Microsoft Outlook, or Yahoo Calendar — automatically syncs upcoming planned service changes so you always stay informed.</p>
+        <p>Every MTA service alert is converted into a calendar event with a clear title, description, and accurate start and end times. That means weekend reroutes, late-night suspensions, planned shutdowns for track work, and station closures show up directly alongside the rest of your schedule. No more checking the MTA website or getting blindsided at the platform.</p>
+        <p>Subscriptions are available for every line in the New York City subway system, including the A, C, E, B, D, F, M, G, J, Z, L, N, Q, R, W, 1, 2, 3, 4, 5, 6, 7, S, and SIR lines. Calendar feeds update automatically — your calendar app polls for changes in the background, so you always have the latest information without any manual refreshing.</p>
+        <h2>Supported calendars</h2>
+        <p>NYC Train Cal works with any calendar application that supports iCalendar subscriptions, including Google Calendar, Apple Calendar (iOS and macOS), Microsoft Outlook, and Yahoo Calendar. Once subscribed, service alert events appear alongside your existing events and update automatically as the MTA publishes new alerts.</p>
     </div>
 
     <script>
@@ -355,8 +362,8 @@ fn render_index_page(gtag_snippet: &str) -> (StatusCode, [(&'static str, &'stati
 
 fn is_valid_train(train_name: &str) -> bool {
     const VALID_TRAINS: &[&str] = &[
-        "A", "C", "E", "B", "D", "F", "M", "G", "J", "Z", "L", "N", "Q", "R", "W",
-        "1", "2", "3", "4", "5", "6", "7", "S", "SI",
+        "A", "C", "E", "B", "D", "F", "M", "G", "J", "Z", "L", "N", "Q", "R", "W", "1", "2", "3",
+        "4", "5", "6", "7", "S", "SI",
     ];
 
     VALID_TRAINS.contains(&train_name)
@@ -382,8 +389,7 @@ fn required_gtag_id_from_env() -> Result<String, String> {
 }
 
 fn init_logging() {
-    let env_filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     fmt()
         .with_env_filter(env_filter)
@@ -407,7 +413,7 @@ fn build_gtag_snippet(ga_id: &str) -> String {
 }
 
 async fn handle_favicon() -> Response {
-        let favicon = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NYC Train Cal favicon">
+    let favicon = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NYC Train Cal favicon">
     <rect x="0" y="0" width="64" height="64" rx="12" fill="#0039a6"/>
     <rect x="16" y="10" width="32" height="36" rx="10" fill="#ffffff"/>
     <rect x="22" y="18" width="20" height="10" rx="2" fill="#0039a6"/>
