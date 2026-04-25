@@ -1,3 +1,5 @@
+#![deny(clippy::print_stdout, clippy::print_stderr)]
+
 use axum::{
     Router,
     extract::{Path, State},
@@ -10,6 +12,8 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
+use tracing::{error, info};
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[derive(Clone)]
 struct AppState {
@@ -19,6 +23,8 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init_logging();
+
     // Cache for 30 seconds - reduces MTA API calls significantly
     let cache = Cache::builder()
         .max_capacity(100)
@@ -60,9 +66,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
 
-    println!("Server running on http://0.0.0.0:{port}");
-    println!("Rate limit: 10 req/s per IP, 30s cache, max 50 concurrent requests");
-    println!("Example: http://localhost:{port}/api/calendars/train/A.ics");
+    info!("Server running on http://0.0.0.0:{port}");
+    info!("Rate limit: 10 req/s per IP, 30s cache, max 50 concurrent requests");
+    info!("Example: http://localhost:{port}/api/calendars/train/A.ics");
 
     axum::serve(
         listener,
@@ -97,7 +103,7 @@ async fn handle_train_calendar(
 
     // Check cache first
     if let Some(cached_content) = state.cache.get(train_name).await {
-        println!("Cache hit for train: {}", train_name);
+        info!("Cache hit for train: {}", train_name);
         return (
             StatusCode::OK,
             [("Content-Type", "text/calendar; charset=utf-8")],
@@ -106,7 +112,7 @@ async fn handle_train_calendar(
             .into_response();
     }
 
-    println!("Cache miss - fetching calendar for train: {}", train_name);
+    info!("Cache miss - fetching calendar for train: {}", train_name);
 
     match nyc_train_time::generate_train_ics(train_name).await {
         Ok(ics_content) => {
@@ -124,7 +130,7 @@ async fn handle_train_calendar(
                 .into_response()
         }
         Err(e) => {
-            eprintln!("Error generating calendar: {}", e);
+            error!("Error generating calendar: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Error generating calendar: {}", e),
@@ -337,6 +343,19 @@ fn required_gtag_id_from_env() -> Result<String, String> {
     }
 
     Ok(ga_id.to_string())
+}
+
+fn init_logging() {
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
+    fmt()
+        .with_env_filter(env_filter)
+        .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339())
+        .with_file(true)
+        .with_line_number(true)
+        .with_target(false)
+        .init();
 }
 
 fn build_gtag_snippet(ga_id: &str) -> String {
