@@ -1004,7 +1004,7 @@ dependencies = [
 
 [[package]]
 name = "nyc-train-time"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "axum",
  "chrono",
