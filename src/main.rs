@@ -46,11 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .finish()
         .ok_or("Failed to build governor config")?;
 
-    let app = Router::new()
-        .route("/", get(handle_index))
-        .route("/favicon.svg", get(handle_favicon))
-        .route("/favicon.ico", get(handle_favicon))
-        .route("/trains/:train_name", get(handle_index_train))
+    let api = Router::new()
         .route(
             "/api/calendars/train/:train_name",
             get(handle_train_calendar),
@@ -60,8 +56,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .layer(GovernorLayer {
                     config: governor_conf.into(),
                 })
-                .layer(tower::limit::ConcurrencyLimitLayer::new(50)), // Max 50 concurrent requests
-        )
+                .layer(tower::limit::ConcurrencyLimitLayer::new(50)),
+        );
+
+    let app = Router::new()
+        .route("/", get(handle_index))
+        .route("/favicon.svg", get(handle_favicon))
+        .route("/favicon.ico", get(handle_favicon))
+        .route("/trains/:train_name", get(handle_index_train))
+        .merge(api)
         .with_state(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
