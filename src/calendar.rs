@@ -148,7 +148,36 @@ pub struct CalendarEvent {
 }
 
 fn process_text(text: &str) -> String {
-    text.replace("[shuttle bus icon]", "🚌")
+    text
+        // Train bullet emojis (MTA uses [A], [1], etc. notation)
+        .replace("[1]", "🔴 1")
+        .replace("[2]", "🔴 2")
+        .replace("[3]", "🔴 3")
+        .replace("[4]", "🟢 4")
+        .replace("[5]", "🟢 5")
+        .replace("[6X]", "🟢 6X")
+        .replace("[6]", "🟢 6")
+        .replace("[7X]", "🟣 7X")
+        .replace("[7]", "🟣 7")
+        .replace("[A]", "🔵 A")
+        .replace("[C]", "🔵 C")
+        .replace("[E]", "🔵 E")
+        .replace("[B]", "🟠 B")
+        .replace("[D]", "🟠 D")
+        .replace("[FX]", "🟠 FX")
+        .replace("[F]", "🟠 F")
+        .replace("[M]", "🟠 M")
+        .replace("[N]", "🟡 N")
+        .replace("[Q]", "🟡 Q")
+        .replace("[R]", "🟡 R")
+        .replace("[W]", "🟡 W")
+        .replace("[J]", "🟤 J")
+        .replace("[Z]", "🟤 Z")
+        .replace("[G]", "🍏 G")
+        .replace("[L]", "🩶 L")
+        .replace("[S]", "⚫ S")
+        // Service icons
+        .replace("[shuttle bus icon]", "🚌")
         .replace("[accessibility icon]", "♿")
         .replace("[elevator icon]", "🛗")
         .replace("[escalator icon]", "🚶")
@@ -195,6 +224,41 @@ mod tests {
         assert_eq!(
             process_text("Take [shuttle bus icon] to station [accessibility icon]"),
             "Take 🚌 to station ♿"
+        );
+    }
+
+    #[test]
+    fn test_process_text_train_bullets() {
+        assert_eq!(process_text("[1]"), "🔴 1");
+        assert_eq!(process_text("[2]"), "🔴 2");
+        assert_eq!(process_text("[3]"), "🔴 3");
+        assert_eq!(process_text("[4]"), "🟢 4");
+        assert_eq!(process_text("[5]"), "🟢 5");
+        assert_eq!(process_text("[6]"), "🟢 6");
+        assert_eq!(process_text("[7]"), "🟣 7");
+        assert_eq!(process_text("[A]"), "🔵 A");
+        assert_eq!(process_text("[C]"), "🔵 C");
+        assert_eq!(process_text("[E]"), "🔵 E");
+        assert_eq!(process_text("[B]"), "🟠 B");
+        assert_eq!(process_text("[D]"), "🟠 D");
+        assert_eq!(process_text("[F]"), "🟠 F");
+        assert_eq!(process_text("[M]"), "🟠 M");
+        assert_eq!(process_text("[N]"), "🟡 N");
+        assert_eq!(process_text("[Q]"), "🟡 Q");
+        assert_eq!(process_text("[R]"), "🟡 R");
+        assert_eq!(process_text("[W]"), "🟡 W");
+        assert_eq!(process_text("[J]"), "🟤 J");
+        assert_eq!(process_text("[Z]"), "🟤 Z");
+        assert_eq!(process_text("[G]"), "🍏 G");
+        assert_eq!(process_text("[L]"), "🩶 L");
+        assert_eq!(process_text("[S]"), "⚫ S");
+        assert_eq!(
+            process_text("No [3] between Crown Hts-Utica Av and New Lots Av"),
+            "No 🔴 3 between Crown Hts-Utica Av and New Lots Av"
+        );
+        assert_eq!(
+            process_text("[A] [C] [E] suspended"),
+            "🔵 A 🔵 C 🔵 E suspended"
         );
     }
 }
