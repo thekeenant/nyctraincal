@@ -50,6 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/", get(handle_index))
         .route("/favicon.svg", get(handle_favicon))
         .route("/favicon.ico", get(handle_favicon))
+        .route("/trains/:train_name", get(handle_index_train))
         .route(
             "/api/calendars/train/:train_name",
             get(handle_train_calendar),
@@ -141,6 +142,22 @@ async fn handle_train_calendar(
 }
 
 async fn handle_index(State(state): State<AppState>) -> Response {
+    render_index_page(&state.gtag_snippet).into_response()
+}
+
+async fn handle_index_train(
+    State(state): State<AppState>,
+    Path(train_name): Path<String>,
+) -> Response {
+    let train = train_name.to_uppercase();
+    if !is_valid_train(&train) {
+        return (StatusCode::NOT_FOUND, "Not found").into_response();
+    }
+
+    render_index_page(&state.gtag_snippet).into_response()
+}
+
+fn render_index_page(gtag_snippet: &str) -> (StatusCode, [(&'static str, &'static str); 1], String) {
     let html_template = r#"<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -253,30 +270,30 @@ async fn handle_index(State(state): State<AppState>) -> Response {
     <p>Click your train line to subscribe to its service alerts:</p>
     
     <div class="train-grid">
-        <button class="train-link train-A" data-train="A">A</button>
-        <button class="train-link train-C" data-train="C">C</button>
-        <button class="train-link train-E" data-train="E">E</button>
-        <button class="train-link train-B" data-train="B">B</button>
-        <button class="train-link train-D" data-train="D">D</button>
-        <button class="train-link train-F" data-train="F">F</button>
-        <button class="train-link train-M" data-train="M">M</button>
-        <button class="train-link train-G" data-train="G">G</button>
-        <button class="train-link train-J" data-train="J">J</button>
-        <button class="train-link train-Z" data-train="Z">Z</button>
-        <button class="train-link train-L" data-train="L">L</button>
-        <button class="train-link train-N" data-train="N">N</button>
-        <button class="train-link train-Q" data-train="Q">Q</button>
-        <button class="train-link train-R" data-train="R">R</button>
-        <button class="train-link train-W" data-train="W">W</button>
-        <button class="train-link train-1" data-train="1">1</button>
-        <button class="train-link train-2" data-train="2">2</button>
-        <button class="train-link train-3" data-train="3">3</button>
-        <button class="train-link train-4" data-train="4">4</button>
-        <button class="train-link train-5" data-train="5">5</button>
-        <button class="train-link train-6" data-train="6">6</button>
-        <button class="train-link train-7" data-train="7">7</button>
-        <button class="train-link train-S" data-train="S">S</button>
-        <button class="train-link train-SI" data-train="SI">SI</button>
+        <a class="train-link train-A" data-train="A" href="/trains/A">A</a>
+        <a class="train-link train-C" data-train="C" href="/trains/C">C</a>
+        <a class="train-link train-E" data-train="E" href="/trains/E">E</a>
+        <a class="train-link train-B" data-train="B" href="/trains/B">B</a>
+        <a class="train-link train-D" data-train="D" href="/trains/D">D</a>
+        <a class="train-link train-F" data-train="F" href="/trains/F">F</a>
+        <a class="train-link train-M" data-train="M" href="/trains/M">M</a>
+        <a class="train-link train-G" data-train="G" href="/trains/G">G</a>
+        <a class="train-link train-J" data-train="J" href="/trains/J">J</a>
+        <a class="train-link train-Z" data-train="Z" href="/trains/Z">Z</a>
+        <a class="train-link train-L" data-train="L" href="/trains/L">L</a>
+        <a class="train-link train-N" data-train="N" href="/trains/N">N</a>
+        <a class="train-link train-Q" data-train="Q" href="/trains/Q">Q</a>
+        <a class="train-link train-R" data-train="R" href="/trains/R">R</a>
+        <a class="train-link train-W" data-train="W" href="/trains/W">W</a>
+        <a class="train-link train-1" data-train="1" href="/trains/1">1</a>
+        <a class="train-link train-2" data-train="2" href="/trains/2">2</a>
+        <a class="train-link train-3" data-train="3" href="/trains/3">3</a>
+        <a class="train-link train-4" data-train="4" href="/trains/4">4</a>
+        <a class="train-link train-5" data-train="5" href="/trains/5">5</a>
+        <a class="train-link train-6" data-train="6" href="/trains/6">6</a>
+        <a class="train-link train-7" data-train="7" href="/trains/7">7</a>
+        <a class="train-link train-S" data-train="S" href="/trains/S">S</a>
+        <a class="train-link train-SI" data-train="SI" href="/trains/SI">SI</a>
     </div>
 
     <div id="subscribeSection" style="display:none;"></div>
@@ -287,43 +304,62 @@ async fn handle_index(State(state): State<AppState>) -> Response {
     </div>
 
     <script>
-        const trainButtons = document.querySelectorAll('.train-link');
+        const trainLinks = document.querySelectorAll('.train-link[data-train]');
         const subscribeSection = document.getElementById('subscribeSection');
+        const validTrains = new Set(['A','C','E','B','D','F','M','G','J','Z','L','N','Q','R','W','1','2','3','4','5','6','7','S','SI']);
 
-        trainButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const train = button.dataset.train;
-                const icsUrl = window.location.origin + '/api/calendars/train/' + train + '.ics';
-                const webcalUrl = icsUrl.replace(/^https?:/, 'webcal:');
-                const colorClass = button.className.split(' ').find(c => c.startsWith('train-') && c !== 'train-link');
-                const badge = `<span class="train-badge ${colorClass}">${train}</span>`;
+        const trainPathMatch = window.location.pathname.match(/^\/trains\/([^/]+)\/?$/);
+        const maybeTrainFromPath = trainPathMatch ? trainPathMatch[1].toUpperCase() : '';
+        const selectedTrain = validTrains.has(maybeTrainFromPath) ? maybeTrainFromPath : null;
 
-                trainButtons.forEach(btn => btn.classList.remove('selected'));
-                button.classList.add('selected');
+        function renderSelection(train) {
+            const activeLink = Array.from(trainLinks).find(link => link.dataset.train === train);
+            if (!activeLink) {
+                subscribeSection.style.display = 'none';
+                return;
+            }
 
-                subscribeSection.innerHTML = `
-                    <div class="subscribe-buttons">
-                        <a class="subscribe-btn" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}" target="_blank" rel="noopener">Add ${badge} to Google Calendar</a>
-                        <a class="subscribe-btn" href="${webcalUrl}">Add ${badge} to Apple Calendar</a>
-                        <a class="subscribe-btn" href="https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener">Add ${badge} to Outlook</a>
-                        <a class="subscribe-btn" href="https://calendar.yahoo.com/?v=60&type=16&SUBCAL=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener">Add ${badge} to Yahoo Calendar</a>
-                    </div>`;
-                subscribeSection.style.display = 'block';
-                subscribeSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            });
-        });
+            const icsUrl = window.location.origin + '/api/calendars/train/' + train + '.ics';
+            const webcalUrl = icsUrl.replace(/^https?:/, 'webcal:');
+            const colorClass = activeLink.className.split(' ').find(c => c.startsWith('train-') && c !== 'train-link');
+            const badge = `<span class="train-badge ${colorClass}">${train}</span>`;
+
+            trainLinks.forEach(link => link.classList.remove('selected'));
+            activeLink.classList.add('selected');
+
+            subscribeSection.innerHTML = `
+                <div class="subscribe-buttons">
+                    <a class="subscribe-btn" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}" target="_blank" rel="noopener">Add ${badge} to Google Calendar</a>
+                    <a class="subscribe-btn" href="${webcalUrl}">Add ${badge} to Apple Calendar</a>
+                    <a class="subscribe-btn" href="https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener">Add ${badge} to Outlook</a>
+                    <a class="subscribe-btn" href="https://calendar.yahoo.com/?v=60&type=16&SUBCAL=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener">Add ${badge} to Yahoo Calendar</a>
+                </div>`;
+            subscribeSection.style.display = 'block';
+        }
+
+        if (selectedTrain) {
+            renderSelection(selectedTrain);
+        }
     </script>
 </body>
 </html>"#;
 
-    let html = html_template.replace("<!-- GTAG_PLACEHOLDER -->", &state.gtag_snippet);
+    let html = html_template.replace("<!-- GTAG_PLACEHOLDER -->", gtag_snippet);
 
     (
         StatusCode::OK,
         [("Content-Type", "text/html; charset=utf-8")],
         html,
     )
-        .into_response()
+}
+
+fn is_valid_train(train_name: &str) -> bool {
+    const VALID_TRAINS: &[&str] = &[
+        "A", "C", "E", "B", "D", "F", "M", "G", "J", "Z", "L", "N", "Q", "R", "W",
+        "1", "2", "3", "4", "5", "6", "7", "S", "SI",
+    ];
+
+    VALID_TRAINS.contains(&train_name)
 }
 
 fn required_gtag_id_from_env() -> Result<String, String> {
