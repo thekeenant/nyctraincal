@@ -172,6 +172,7 @@ fn render_index_page(
     <meta name="description" content="Subscribe to live MTA subway service alerts as calendar feeds. Get planned service changes, weekend reroutes, and suspensions directly in Google Calendar, Apple Calendar, or Outlook — filtered by train line.">
     <!-- GTAG_PLACEHOLDER -->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.css' rel='stylesheet' />
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -260,6 +261,43 @@ fn render_index_page(
             border-radius: 8px;
             margin-top: 30px;
         }
+        #calendarContainer {
+            margin-top: 24px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 16px;
+            background: #fff;
+        }
+        #calendarContainer h3 {
+            margin: 0 0 12px 0;
+            font-size: 15px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        #eventDetail {
+            margin-top: 16px;
+            padding: 14px 16px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: none;
+        }
+        #eventDetail h4 {
+            margin: 0 0 6px 0;
+            font-size: 15px;
+            color: #222;
+        }
+        #eventDetail .event-time {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        #eventDetail .event-desc {
+            font-size: 14px;
+            color: #444;
+            white-space: pre-wrap;
+        }
         @media (max-width: 600px) {
             body { padding: 15px; }
             h1 { font-size: 24px; margin-top: 10px; }
@@ -303,6 +341,15 @@ fn render_index_page(
     </div>
 
     <div id="subscribeSection" style="display:none;"></div>
+    <div id="calendarContainer" style="display:none;">
+        <h3>Upcoming service alerts</h3>
+        <div id="calendarEl"></div>
+        <div id="eventDetail">
+            <h4 id="eventDetailTitle"></h4>
+            <div class="event-time" id="eventDetailTime"></div>
+            <div class="event-desc" id="eventDetailDesc"></div>
+        </div>
+    </div>
 
     <div class="about">
         <h2>How it works</h2>
@@ -313,19 +360,27 @@ fn render_index_page(
         <p>NYC Train Cal works with any calendar application that supports iCalendar subscriptions, including Google Calendar, Apple Calendar (iOS and macOS), Microsoft Outlook, and Yahoo Calendar. Once subscribed, service alert events appear alongside your existing events and update automatically as the MTA publishes new alerts.</p>
     </div>
 
+    <script src='https://cdn.jsdelivr.net/npm/ical.js@1.5.0/build/ical.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/icalendar@6.1.17/index.global.min.js'></script>
     <script>
         const trainLinks = document.querySelectorAll('.train-link[data-train]');
         const subscribeSection = document.getElementById('subscribeSection');
+        const calendarContainer = document.getElementById('calendarContainer');
+        const calendarEl = document.getElementById('calendarEl');
         const validTrains = new Set(['A','C','E','B','D','F','M','G','J','Z','L','N','Q','R','W','1','2','3','4','5','6','7','S','SI']);
 
         const trainPathMatch = window.location.pathname.match(/^\/trains\/([^/]+)\/?$/);
         const maybeTrainFromPath = trainPathMatch ? trainPathMatch[1].toUpperCase() : '';
         const selectedTrain = validTrains.has(maybeTrainFromPath) ? maybeTrainFromPath : null;
 
+        let calendarInstance = null;
+
         function renderSelection(train) {
             const activeLink = Array.from(trainLinks).find(link => link.dataset.train === train);
             if (!activeLink) {
                 subscribeSection.style.display = 'none';
+                calendarContainer.style.display = 'none';
                 return;
             }
 
@@ -345,6 +400,41 @@ fn render_index_page(
                     <a class="subscribe-btn" href="https://calendar.yahoo.com/?v=60&type=16&SUBCAL=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener">Add ${badge} to Yahoo Calendar</a>
                 </div>`;
             subscribeSection.style.display = 'block';
+
+            calendarContainer.style.display = 'block';
+            if (calendarInstance) {
+                calendarInstance.destroy();
+            }
+            const eventDetail = document.getElementById('eventDetail');
+            const eventDetailTitle = document.getElementById('eventDetailTitle');
+            const eventDetailTime = document.getElementById('eventDetailTime');
+            const eventDetailDesc = document.getElementById('eventDetailDesc');
+
+            calendarInstance = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                events: { url: icsUrl, format: 'ics' },
+                height: 'auto',
+                noEventsContent: 'No upcoming service alerts for this line.',
+                headerToolbar: {
+                    left: 'prev,next',
+                    center: 'title',
+                    right: 'today'
+                },
+                eventClick(info) {
+                    info.jsEvent.preventDefault();
+                    const start = info.event.start;
+                    const end = info.event.end;
+                    const fmt = d => d ? d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                    const timeStr = end ? `${fmt(start)} – ${fmt(end)}` : fmt(start);
+                    eventDetailTitle.textContent = info.event.title;
+                    eventDetailTime.textContent = timeStr;
+                    eventDetailDesc.textContent = info.event.extendedProps.description || '';
+                    eventDetail.style.display = 'block';
+                    eventDetail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+            eventDetail.style.display = 'none';
+            calendarInstance.render();
         }
 
         if (selectedTrain) {
