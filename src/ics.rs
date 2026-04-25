@@ -82,7 +82,7 @@ fn generate_event(event: &CalendarEvent) -> String {
 
     if !event.description.is_empty() {
         vevent.push_str(&fold_line(&format!(
-            "DESCRIPTION:{}",
+            "DESCRIPTION:Subscribed via https://nyctraincal.com\\n\\n{}",
             escape_text(&event.description)
         )));
         vevent.push_str("\r\n");
