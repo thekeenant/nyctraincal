@@ -2,6 +2,7 @@ use crate::proto::gtfs_realtime::translated_string::Translation as ProtoTranslat
 use crate::proto::gtfs_realtime::{FeedEntity, FeedMessage};
 use crate::proto::gtfs_realtime_service_status;
 use chrono::{DateTime, TimeZone, Utc};
+use itertools::Itertools;
 
 pub fn proto_feed_to_events(feed: &FeedMessage) -> Vec<CalendarEvent> {
     let default_time = feed
@@ -26,6 +27,7 @@ fn proto_entity_to_events(entity: &FeedEntity, default_time: DateTime<Utc>) -> V
         .informed_entity
         .iter()
         .filter_map(|e| e.route_id.as_ref().map(|s| s.to_string()))
+        .unique()
         .collect();
 
     let route_str = if routes.is_empty() {
