@@ -390,7 +390,7 @@ fn render_index_page(
         .route-disc:nth-child(3) { left: 54px; bottom: 0; background: #00933c; }
         .panel { margin-top: 24px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
         .line-panel { padding: clamp(22px, 4vw, 36px); }
-        .line-panel.compact { position: sticky; top: 12px; z-index: 20; grid-area: dock; margin: 0; padding: 18px; border-radius: 18px; view-transition-name: line-selector; }
+        .line-panel.compact { position: static; grid-area: dock; margin: 0; padding: 18px; border-radius: 18px; view-transition-name: line-selector; }
         .line-panel.compact .section-heading { margin-bottom: 14px; }
         .line-panel.compact .section-heading h2 { font-size: 15px; }
         .line-panel.compact .section-heading p { display: none; }
@@ -404,7 +404,7 @@ fn render_index_page(
         .train-link:hover { transform: translateY(-3px) scale(1.03); }
         .train-link.selected { box-shadow: 0 0 0 4px var(--surface), 0 0 0 7px var(--accent), 0 8px 20px rgba(15,23,42,.18); }
         .train-link:focus-visible, .theme-toggle:focus-visible, .subscribe-btn:focus-visible, .copy-btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
-        .workspace { display: none; grid-template-columns: minmax(0, 1.35fr) minmax(270px, .65fr); grid-template-areas: "calendar dock" "calendar subscribe"; align-items: start; gap: 24px; margin-top: 24px; }
+        .workspace { display: none; grid-template-columns: minmax(270px, .65fr) minmax(0, 1.35fr); grid-template-areas: "dock calendar" "subscribe calendar"; align-items: start; gap: 24px; margin-top: 24px; }
         .workspace.visible { display: grid; }
         .subscribe-panel, #calendarContainer { margin: 0; padding: 26px; }
         .subscribe-panel { grid-area: subscribe; }
@@ -436,8 +436,8 @@ fn render_index_page(
         .step h3 { margin: 8px 0 5px; color: var(--text); }
         .step p { margin: 0; color: var(--muted); font-size: 14px; }
         .site-footer { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 26px 0 0; color: var(--muted); text-align: center; font-size: 13px; }
-        @media (max-width: 800px) { .hero { grid-template-columns: 1fr; } .hero-art { display: none; } .train-grid { grid-template-columns: repeat(6, 1fr); } .workspace { grid-template-columns: 1fr; grid-template-areas: "dock" "calendar" "subscribe"; } .line-panel.compact { top: 8px; } .line-panel.compact .train-grid { grid-template-columns: repeat(8, 1fr); } }
-        @media (max-width: 600px) { .app-shell { width: min(100% - 22px, 1080px); padding-top: 12px; } .status-pill { display: none; } .hero { border-radius: 19px; padding: 28px 22px; } .hero h1 { font-size: 39px; } .panel { border-radius: 18px; } .train-grid { grid-template-columns: repeat(4, 1fr); gap: 13px; } .train-link { width: 100%; height: auto; font-size: 18px; } .line-panel.compact { padding: 12px; } .line-panel.compact .train-grid { grid-template-columns: repeat(6, 1fr); gap: 8px; } .steps { grid-template-columns: 1fr; } .fc .fc-toolbar { align-items: flex-start; } }
+        @media (max-width: 800px) { .hero { grid-template-columns: 1fr; } .hero-art { display: none; } .train-grid { grid-template-columns: repeat(6, 1fr); } .workspace { grid-template-columns: 1fr; grid-template-areas: "dock" "calendar" "subscribe"; } .line-panel.compact { position: sticky; top: 8px; z-index: 20; } .line-panel.compact .train-grid { display: flex; gap: 9px; overflow-x: auto; padding: 4px; scrollbar-width: none; } .line-panel.compact .train-grid::-webkit-scrollbar { display: none; } .line-panel.compact .train-link { flex: 0 0 38px; width: 38px; } }
+        @media (max-width: 600px) { .app-shell { width: min(100% - 22px, 1080px); padding-top: 12px; } .status-pill { display: none; } .hero { border-radius: 19px; padding: 28px 22px; } .hero h1 { font-size: 39px; } .panel { border-radius: 18px; } .train-grid { grid-template-columns: repeat(4, 1fr); gap: 13px; } .train-link { width: 100%; height: auto; font-size: 18px; } .line-panel.compact { padding: 12px; } .steps { grid-template-columns: 1fr; } .fc .fc-toolbar { align-items: flex-start; } }
         ::view-transition-old(line-selector), ::view-transition-new(line-selector) { animation-duration: .38s; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
     </style>
