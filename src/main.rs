@@ -19,6 +19,7 @@ use tracing_subscriber::{EnvFilter, fmt};
 struct AppState {
     cache: Cache<String, String>,
     gtag_snippet: String,
+    development_mode: bool,
 }
 
 #[tokio::main]
@@ -37,6 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState {
         cache,
         gtag_snippet,
+        development_mode: std::env::var("APP_ENV").is_ok_and(|value| value == "development"),
     };
 
     // Rate limiting: 10 requests per IP per second
@@ -145,7 +147,7 @@ async fn handle_train_calendar(
 }
 
 async fn handle_index(State(state): State<AppState>) -> Response {
-    render_index_page(&state.gtag_snippet).into_response()
+    render_index_page(&state.gtag_snippet, state.development_mode).into_response()
 }
 
 async fn handle_index_train(
@@ -157,17 +159,28 @@ async fn handle_index_train(
         return (StatusCode::NOT_FOUND, "Not found").into_response();
     }
 
-    render_index_page(&state.gtag_snippet).into_response()
+    render_index_page(&state.gtag_snippet, state.development_mode).into_response()
 }
 
 fn render_index_page(
     gtag_snippet: &str,
+    development_mode: bool,
 ) -> (StatusCode, [(&'static str, &'static str); 1], String) {
     let html_template = r#"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (() => {
+            try {
+                const saved = localStorage.getItem('theme');
+                document.documentElement.dataset.theme = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            } catch (_) {
+                document.documentElement.dataset.theme = 'light';
+            }
+        })();
+    </script>
     <title>NYC Train Cal — MTA Subway Service Alert Calendars</title>
     <meta name="description" content="Subscribe to live MTA subway service alerts as calendar feeds. Get planned service changes, weekend reroutes, and suspensions directly in Google Calendar, Apple Calendar, or Outlook — filtered by train line.">
     <!-- GTAG_PLACEHOLDER -->
@@ -184,6 +197,14 @@ fn render_index_page(
         h1 {
             color: #333;
             margin-top: 20px;
+        }
+        .dev-banner {
+            background: #fff3cd;
+            border: 1px solid #ffda6a;
+            border-radius: 8px;
+            color: #664d03;
+            font-weight: 600;
+            padding: 10px 14px;
         }
         .line-group {
             margin: 30px 0;
@@ -307,12 +328,137 @@ fn render_index_page(
             }
             .train-link { width: 52px; height: 52px; font-size: 18px; }
         }
+
+        :root {
+            color-scheme: light;
+            --bg: #f4f6fa;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --text: #141b2a;
+            --muted: #667085;
+            --border: #dfe4ec;
+            --accent: #174ea6;
+            --accent-hover: #0f3d85;
+            --accent-soft: #e9f0ff;
+            --shadow: 0 18px 50px rgba(29, 45, 74, 0.09);
+            --focus: #6ea8fe;
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #0b1018;
+            --surface: #131a24;
+            --surface-2: #192231;
+            --text: #f4f7fb;
+            --muted: #a3adbd;
+            --border: #2b3647;
+            --accent: #6ea8fe;
+            --accent-hover: #91bdff;
+            --accent-soft: #172a46;
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+        }
+        * { box-sizing: border-box; }
+        body {
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            transition: background .2s ease, color .2s ease;
+        }
+        .app-shell { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 64px; }
+        .site-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+        .brand { display: flex; align-items: center; gap: 11px; color: var(--text); font-size: 18px; font-weight: 750; letter-spacing: -.02em; }
+        .brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: #0039a6; color: white; box-shadow: 0 8px 22px rgba(0,57,166,.24); }
+        .header-actions { display: flex; align-items: center; gap: 10px; }
+        .status-pill, .dev-banner { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--muted); padding: 7px 11px; font-size: 12px; font-weight: 650; }
+        .status-pill { height: 40px; }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #20a464; box-shadow: 0 0 0 4px rgba(32,164,100,.12); }
+        .theme-toggle { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 18px; }
+        .theme-toggle:hover { background: var(--surface-2); }
+        .theme-icon-dark { display: none; }
+        [data-theme="dark"] .theme-icon-light { display: none; }
+        [data-theme="dark"] .theme-icon-dark { display: inline; }
+        .hero { display: grid; grid-template-columns: 1.35fr .65fr; gap: 24px; align-items: center; overflow: hidden; position: relative; border: 1px solid var(--border); border-radius: 24px; padding: clamp(28px, 5vw, 54px); background: var(--surface); box-shadow: var(--shadow); }
+        .eyebrow { margin: 0 0 12px; color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .hero h1 { max-width: 680px; margin: 0; color: var(--text); font-size: clamp(36px, 6vw, 64px); line-height: 1.02; letter-spacing: -.055em; }
+        .hero-copy { max-width: 620px; margin: 20px 0 0; color: var(--muted); font-size: clamp(16px, 2vw, 19px); line-height: 1.65; }
+        .hero-art { min-height: 190px; display: grid; place-items: center; position: relative; }
+        .route-stack { position: relative; width: 190px; height: 175px; }
+        .route-disc { position: absolute; display: grid; place-items: center; width: 82px; height: 82px; border-radius: 50%; color: white; font-size: 30px; font-weight: 850; border: 6px solid var(--surface); box-shadow: 0 14px 30px rgba(15,23,42,.2); }
+        .route-disc:nth-child(1) { left: 5px; top: 14px; background: #0039a6; }
+        .route-disc:nth-child(2) { right: 4px; top: 1px; background: #ff6319; }
+        .route-disc:nth-child(3) { left: 54px; bottom: 0; background: #00933c; }
+        .panel { margin-top: 24px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
+        .line-panel { padding: clamp(22px, 4vw, 36px); }
+        .line-panel.compact { position: sticky; top: 12px; z-index: 20; grid-area: dock; margin: 0; padding: 18px; border-radius: 18px; view-transition-name: line-selector; }
+        .line-panel.compact .section-heading { margin-bottom: 14px; }
+        .line-panel.compact .section-heading h2 { font-size: 15px; }
+        .line-panel.compact .section-heading p { display: none; }
+        .line-panel.compact .train-grid { grid-template-columns: repeat(6, 1fr); gap: 9px; }
+        .line-panel.compact .train-link { max-width: 38px; font-size: 12px; box-shadow: 0 4px 10px rgba(15,23,42,.12); }
+        .section-heading { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 24px; }
+        .section-heading h2 { margin: 0 0 4px; color: var(--text); font-size: 25px; letter-spacing: -.03em; }
+        .section-heading p { margin: 0; color: var(--muted); }
+        .train-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 16px; margin: 0; }
+        .train-link { width: 100%; height: auto; max-width: 72px; aspect-ratio: 1; justify-self: center; font-size: 23px; box-shadow: 0 6px 15px rgba(15,23,42,.13); }
+        .train-link:hover { transform: translateY(-3px) scale(1.03); }
+        .train-link.selected { box-shadow: 0 0 0 4px var(--surface), 0 0 0 7px var(--accent), 0 8px 20px rgba(15,23,42,.18); }
+        .train-link:focus-visible, .theme-toggle:focus-visible, .subscribe-btn:focus-visible, .copy-btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+        .workspace { display: none; grid-template-columns: minmax(0, 1.35fr) minmax(270px, .65fr); grid-template-areas: "calendar dock" "calendar subscribe"; align-items: start; gap: 24px; margin-top: 24px; }
+        .workspace.visible { display: grid; }
+        .subscribe-panel, #calendarContainer { margin: 0; padding: 26px; }
+        .subscribe-panel { grid-area: subscribe; }
+        .subscribe-kicker { color: var(--muted); font-size: 13px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+        .subscribe-title { margin: 8px 0 8px; color: var(--text); font-size: 25px; line-height: 1.25; }
+        .subscribe-intro { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+        .subscribe-buttons { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .subscribe-btn, .copy-btn { min-height: 56px; border: 1px solid var(--border); border-radius: 13px; padding: 12px 14px; background: var(--surface-2); color: var(--text); }
+        .subscribe-btn { justify-content: space-between; }
+        .subscribe-btn:hover, .copy-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+        .provider { display: flex; align-items: center; gap: 11px; }
+        .provider-icon { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); font-size: 15px; }
+        .provider-copy { display: flex; flex-direction: column; line-height: 1.25; }
+        .provider-copy small { margin-top: 3px; color: var(--muted); font-weight: 500; }
+        .copy-btn { width: 100%; margin-top: 12px; cursor: pointer; font: inherit; font-weight: 700; }
+        #calendarContainer { grid-area: calendar; display: block; background: var(--surface); }
+        #calendarContainer h3 { color: var(--text); font-size: 18px; text-transform: none; letter-spacing: -.02em; }
+        #eventDetail { background: var(--surface-2); border-color: var(--border); }
+        #eventDetail h4 { color: var(--text); }
+        #eventDetail .event-time, #eventDetail .event-desc { color: var(--muted); }
+        .fc { --fc-page-bg-color: var(--surface); --fc-neutral-bg-color: var(--surface-2); --fc-neutral-text-color: var(--muted); --fc-border-color: var(--border); --fc-button-bg-color: var(--accent); --fc-button-border-color: var(--accent); --fc-button-hover-bg-color: var(--accent-hover); --fc-button-hover-border-color: var(--accent-hover); --fc-button-active-bg-color: var(--accent-hover); --fc-today-bg-color: var(--accent-soft); color: var(--text); }
+        .fc .fc-toolbar { flex-wrap: wrap; gap: 10px; }
+        .fc .fc-toolbar-title { font-size: 18px; }
+        .about { padding: clamp(24px, 4vw, 36px); background: var(--surface); border: 1px solid var(--border); border-radius: 22px; }
+        .about h2 { margin-top: 0; color: var(--text); font-size: 25px; letter-spacing: -.03em; }
+        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .step { padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-2); }
+        .step-number { color: var(--accent); font-weight: 850; }
+        .step h3 { margin: 8px 0 5px; color: var(--text); }
+        .step p { margin: 0; color: var(--muted); font-size: 14px; }
+        .site-footer { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 26px 0 0; color: var(--muted); text-align: center; font-size: 13px; }
+        @media (max-width: 800px) { .hero { grid-template-columns: 1fr; } .hero-art { display: none; } .train-grid { grid-template-columns: repeat(6, 1fr); } .workspace { grid-template-columns: 1fr; grid-template-areas: "dock" "calendar" "subscribe"; } .line-panel.compact { top: 8px; } .line-panel.compact .train-grid { grid-template-columns: repeat(8, 1fr); } }
+        @media (max-width: 600px) { .app-shell { width: min(100% - 22px, 1080px); padding-top: 12px; } .status-pill { display: none; } .hero { border-radius: 19px; padding: 28px 22px; } .hero h1 { font-size: 39px; } .panel { border-radius: 18px; } .train-grid { grid-template-columns: repeat(4, 1fr); gap: 13px; } .train-link { width: 100%; height: auto; font-size: 18px; } .line-panel.compact { padding: 12px; } .line-panel.compact .train-grid { grid-template-columns: repeat(6, 1fr); gap: 8px; } .steps { grid-template-columns: 1fr; } .fc .fc-toolbar { align-items: flex-start; } }
+        ::view-transition-old(line-selector), ::view-transition-new(line-selector) { animation-duration: .38s; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
     </style>
 </head>
 <body>
-    <h1>🚇 NYC Train Cal — MTA Subway Alert Calendars</h1>
-    <p>Select your train line below to subscribe to its live MTA service alerts as a calendar feed:</p>
-    
+<div class="app-shell">
+    <header class="site-header">
+        <div class="brand"><span class="brand-mark">N</span><span>NYC Train Cal</span></div>
+        <div class="header-actions">
+            <span class="status-pill"><span class="status-dot"></span>Live MTA data</span>
+            <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch color theme"><span class="theme-icon-light">☾</span><span class="theme-icon-dark">☀</span></button>
+        </div>
+    </header>
+    <main>
+    <section class="hero">
+        <div><p class="eyebrow">Service changes, simplified</p><h1>Subway alerts, right in your calendar.</h1><p class="hero-copy">Choose your line and subscribe once. Weekend reroutes, planned work, and service changes stay in sync automatically.</p></div>
+        <div class="hero-art" aria-hidden="true"><div class="route-stack"><span class="route-disc">A</span><span class="route-disc">F</span><span class="route-disc">4</span></div></div>
+    </section>
+    <div id="linePanelHome"></div>
+    <section class="panel line-panel" id="linePanel">
+        <div class="section-heading"><div><h2>Choose your line</h2><p>Select a route to preview alerts and subscription options.</p></div></div>
     <div class="train-grid">
         <a class="train-link train-A" data-train="A" href="/trains/A">A</a>
         <a class="train-link train-C" data-train="C" href="/trains/C">C</a>
@@ -339,9 +485,11 @@ fn render_index_page(
         <a class="train-link train-S" data-train="S" href="/trains/S">S</a>
         <a class="train-link train-SI" data-train="SI" href="/trains/SI">SI</a>
     </div>
+    </section>
 
-    <div id="subscribeSection" style="display:none;"></div>
-    <div id="calendarContainer" style="display:none;">
+    <div class="workspace" id="workspace">
+    <div class="panel subscribe-panel" id="subscribeSection"></div>
+    <div class="panel" id="calendarContainer">
         <h3>Upcoming service alerts</h3>
         <div id="calendarEl"></div>
         <div id="eventDetail">
@@ -350,14 +498,15 @@ fn render_index_page(
             <div class="event-desc" id="eventDetailDesc"></div>
         </div>
     </div>
+    </div>
 
     <div class="about">
         <h2>How it works</h2>
-        <p>NYC Train Cal pulls live service alerts directly from the MTA's real-time data feeds and converts them into iCalendar (.ics) files you can subscribe to from any calendar application. When you subscribe, your calendar app — whether that's Google Calendar, Apple Calendar, Microsoft Outlook, or Yahoo Calendar — automatically syncs upcoming planned service changes so you always stay informed.</p>
-        <p>Every MTA service alert is converted into a calendar event with a clear title, description, and accurate start and end times. That means weekend reroutes, late-night suspensions, planned shutdowns for track work, and station closures show up directly alongside the rest of your schedule. No more checking the MTA website or getting blindsided at the platform.</p>
-        <p>Subscriptions are available for every line in the New York City subway system, including the A, C, E, B, D, F, M, G, J, Z, L, N, Q, R, W, 1, 2, 3, 4, 5, 6, 7, S, and SIR lines. Calendar feeds update automatically — your calendar app polls for changes in the background, so you always have the latest information without any manual refreshing.</p>
-        <h2>Supported calendars</h2>
-        <p>NYC Train Cal works with any calendar application that supports iCalendar subscriptions, including Google Calendar, Apple Calendar (iOS and macOS), Microsoft Outlook, and Yahoo Calendar. Once subscribed, service alert events appear alongside your existing events and update automatically as the MTA publishes new alerts.</p>
+        <div class="steps">
+            <article class="step"><span class="step-number">01</span><h3>Choose a line</h3><p>Pick any subway route to see its planned service changes.</p></article>
+            <article class="step"><span class="step-number">02</span><h3>Add it once</h3><p>Subscribe with Google, Apple, Outlook, Yahoo, or any iCalendar app.</p></article>
+            <article class="step"><span class="step-number">03</span><h3>Stay in sync</h3><p>Your calendar refreshes automatically as the MTA publishes updates.</p></article>
+        </div>
     </div>
 
     <script src='https://cdn.jsdelivr.net/npm/ical.js@1.5.0/build/ical.min.js'></script>
@@ -367,41 +516,74 @@ fn render_index_page(
         const trainLinks = document.querySelectorAll('.train-link[data-train]');
         const subscribeSection = document.getElementById('subscribeSection');
         const calendarContainer = document.getElementById('calendarContainer');
+        const workspace = document.getElementById('workspace');
         const calendarEl = document.getElementById('calendarEl');
+        const themeToggle = document.getElementById('themeToggle');
+        const linePanel = document.getElementById('linePanel');
+        const linePanelHome = document.getElementById('linePanelHome');
         const validTrains = new Set(['A','C','E','B','D','F','M','G','J','Z','L','N','Q','R','W','1','2','3','4','5','6','7','S','SI']);
 
-        const trainPathMatch = window.location.pathname.match(/^\/trains\/([^/]+)\/?$/);
-        const maybeTrainFromPath = trainPathMatch ? trainPathMatch[1].toUpperCase() : '';
-        const selectedTrain = validTrains.has(maybeTrainFromPath) ? maybeTrainFromPath : null;
+        function selectedTrainFromPath() {
+            const match = window.location.pathname.match(/^\/trains\/([^/]+)\/?$/);
+            const train = match ? match[1].toUpperCase() : '';
+            return validTrains.has(train) ? train : null;
+        }
 
         let calendarInstance = null;
+
+        function syncThemeButton() {
+            const dark = document.documentElement.dataset.theme === 'dark';
+            themeToggle.setAttribute('aria-pressed', String(dark));
+            themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+        }
+        syncThemeButton();
+        themeToggle.addEventListener('click', () => {
+            const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.dataset.theme = theme;
+            try { localStorage.setItem('theme', theme); } catch (_) {}
+            syncThemeButton();
+            if (calendarInstance) calendarInstance.updateSize();
+        });
 
         function renderSelection(train) {
             const activeLink = Array.from(trainLinks).find(link => link.dataset.train === train);
             if (!activeLink) {
-                subscribeSection.style.display = 'none';
-                calendarContainer.style.display = 'none';
+                workspace.classList.remove('visible');
+                trainLinks.forEach(link => { link.classList.remove('selected'); link.removeAttribute('aria-current'); });
+                linePanel.classList.remove('compact');
+                linePanelHome.after(linePanel);
+                if (calendarInstance) {
+                    calendarInstance.destroy();
+                    calendarInstance = null;
+                }
                 return;
             }
 
             const icsUrl = window.location.origin + '/api/calendars/train/' + train + '.ics';
             const webcalUrl = icsUrl.replace(/^https?:/, 'webcal:');
             const colorClass = activeLink.className.split(' ').find(c => c.startsWith('train-') && c !== 'train-link');
-            const badge = `<span class="train-badge ${colorClass}">${train}</span>`;
-
-            trainLinks.forEach(link => link.classList.remove('selected'));
+            trainLinks.forEach(link => { link.classList.remove('selected'); link.removeAttribute('aria-current'); });
             activeLink.classList.add('selected');
+            activeLink.setAttribute('aria-current', 'page');
+            linePanel.classList.add('compact');
+            workspace.appendChild(linePanel);
 
             subscribeSection.innerHTML = `
+                <div class="subscribe-kicker">Selected line</div>
+                <h2 class="subscribe-title">Add the ${train} train to your calendar</h2>
+                <p class="subscribe-intro">Choose your calendar app. Alerts update automatically after you subscribe.</p>
                 <div class="subscribe-buttons">
-                    <a class="subscribe-btn" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}" target="_blank" rel="noopener">Add ${badge} to Google Calendar</a>
-                    <a class="subscribe-btn" href="${webcalUrl}">Add ${badge} to Apple Calendar</a>
-                    <a class="subscribe-btn" href="https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener">Add ${badge} to Outlook</a>
-                    <a class="subscribe-btn" href="https://calendar.yahoo.com/?v=60&type=16&SUBCAL=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener">Add ${badge} to Yahoo Calendar</a>
-                </div>`;
-            subscribeSection.style.display = 'block';
-
-            calendarContainer.style.display = 'block';
+                    <a class="subscribe-btn" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}" target="_blank" rel="noopener"><span class="provider"><span class="provider-icon">G</span><span class="provider-copy">Google Calendar<small>Open in a new tab</small></span></span><span>→</span></a>
+                    <a class="subscribe-btn" href="${webcalUrl}"><span class="provider"><span class="provider-icon">●</span><span class="provider-copy">Apple Calendar<small>Open calendar app</small></span></span><span>→</span></a>
+                    <a class="subscribe-btn" href="https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener"><span class="provider"><span class="provider-icon">O</span><span class="provider-copy">Outlook<small>Open in a new tab</small></span></span><span>→</span></a>
+                    <a class="subscribe-btn" href="https://calendar.yahoo.com/?v=60&type=16&SUBCAL=${encodeURIComponent(icsUrl)}" target="_blank" rel="noopener"><span class="provider"><span class="provider-icon">Y!</span><span class="provider-copy">Yahoo Calendar<small>Open in a new tab</small></span></span><span>→</span></a>
+                </div>
+                <button class="copy-btn" id="copyCalendarUrl" type="button">Copy calendar link</button>`;
+            workspace.classList.add('visible');
+            document.getElementById('copyCalendarUrl').addEventListener('click', async event => {
+                await navigator.clipboard.writeText(icsUrl);
+                event.currentTarget.textContent = 'Copied calendar link ✓';
+            });
             if (calendarInstance) {
                 calendarInstance.destroy();
             }
@@ -437,14 +619,43 @@ fn render_index_page(
             calendarInstance.render();
         }
 
-        if (selectedTrain) {
-            renderSelection(selectedTrain);
+        function handleTrainNavigation(event, shouldScroll) {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            const link = event.currentTarget;
+            const scrollAfterSelection = shouldScroll && !linePanel.classList.contains('compact');
+            history.pushState({}, '', link.href);
+            const updateSelection = () => renderSelection(link.dataset.train);
+            const transition = document.startViewTransition ? document.startViewTransition(updateSelection) : null;
+            if (!transition) updateSelection();
+            if (scrollAfterSelection) {
+                const scrollToWorkspace = () => workspace.scrollIntoView({
+                    behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+                    block: 'start'
+                });
+                transition ? transition.finished.then(scrollToWorkspace) : requestAnimationFrame(scrollToWorkspace);
+            }
         }
+
+        trainLinks.forEach(link => link.addEventListener('click', event => handleTrainNavigation(event, true)));
+
+        window.addEventListener('popstate', () => renderSelection(selectedTrainFromPath()));
+        renderSelection(selectedTrainFromPath());
     </script>
+    </main>
+    <footer class="site-footer"><span>Built for New Yorkers who would rather know before they reach the platform.</span><!-- DEV_MODE_PLACEHOLDER --></footer>
+</div>
 </body>
 </html>"#;
 
-    let html = html_template.replace("<!-- GTAG_PLACEHOLDER -->", gtag_snippet);
+    let dev_mode_badge = if development_mode {
+        r#"<span class="dev-banner">Dev mode</span>"#
+    } else {
+        ""
+    };
+    let html = html_template
+        .replace("<!-- GTAG_PLACEHOLDER -->", gtag_snippet)
+        .replace("<!-- DEV_MODE_PLACEHOLDER -->", dev_mode_badge);
 
     (
         StatusCode::OK,

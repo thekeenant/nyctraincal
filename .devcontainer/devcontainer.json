@@ -1,8 +1,20 @@
 {
   "name": "NYC Train Cal",
-  "image": "mcr.microsoft.com/devcontainers/rust:1-bookworm",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "features": {
     "ghcr.io/devcontainers-contrib/features/protoc:1": {}
+  },
+  "runArgs": [
+    "--network=web_default",
+    "--network-alias=nyctraincal-dev"
+  ],
+  "containerEnv": {
+    "PORT": "3000",
+    "GTAG_ID": "G-DEVLOCAL",
+    "APP_ENV": "development",
+    "CARGO_HOME": "/home/vscode/.cargo"
   },
   "customizations": {
     "vscode": {
@@ -19,5 +31,6 @@
     }
   },
   "postCreateCommand": "rustc --version && cargo --version && protoc --version",
+  "postStartCommand": "sh .devcontainer/start-server.sh",
   "remoteUser": "vscode"
 }
